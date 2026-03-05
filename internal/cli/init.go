@@ -75,6 +75,7 @@ func printNextSteps(configPath string) {
 	fmt.Fprintln(os.Stdout, "   • Claude Code (API key): https://console.anthropic.com/settings/keys")
 	fmt.Fprintln(os.Stdout, "   • Codex (API key): https://platform.openai.com/api-keys")
 	fmt.Fprintln(os.Stdout, "   • Gemini (API key): https://aistudio.google.com/app/apikey")
+	fmt.Fprintln(os.Stdout, "   • OpenCode (API key): depends on the model provider")
 	fmt.Fprintln(os.Stdout, "")
 	fmt.Fprintln(os.Stdout, "2. Edit the config file and add your token:")
 	fmt.Fprintf(os.Stdout, "   %s\n", configPath)
