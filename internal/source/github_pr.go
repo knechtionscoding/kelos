@@ -104,15 +104,17 @@ func (s *GitHubPullRequestSource) Discover(ctx context.Context) ([]WorkItem, err
 			return nil, fmt.Errorf("fetching comments for pull request #%d: %w", pr.Number, err)
 		}
 
-		commentAllowed, commentTriggerTime := s.passesCommentFilter(pr.Body, conversationComments)
-		if !commentAllowed {
-			continue
-		}
-
 		reviewComments, err := s.fetchPullRequestComments(ctx, pr.Number)
 		if err != nil {
 			return nil, fmt.Errorf("fetching review comments for pull request #%d: %w", pr.Number, err)
 		}
+
+		allComments := mergeComments(conversationComments, reviewComments)
+		commentAllowed, commentTriggerTime := s.passesCommentFilter(pr.Body, allComments)
+		if !commentAllowed {
+			continue
+		}
+
 		reviewComments = filterPullRequestCommentsForCommit(reviewComments, pr.Head.SHA)
 
 		labels := make([]string, 0, len(pr.Labels))
@@ -472,6 +474,20 @@ func (s *GitHubPullRequestSource) resolveTriggerTime(reviewTriggerTime, commentT
 		triggerTime = reviewTriggerTime
 	}
 	return triggerTime
+}
+
+// mergeComments combines conversation comments and review comments into a
+// single slice so that both sources are evaluated by the comment filter.
+func mergeComments(conversation []githubComment, review []githubPullRequestComment) []githubComment {
+	merged := make([]githubComment, 0, len(conversation)+len(review))
+	merged = append(merged, conversation...)
+	for _, rc := range review {
+		merged = append(merged, githubComment{
+			Body:      rc.Body,
+			CreatedAt: rc.CreatedAt,
+		})
+	}
+	return merged
 }
 
 func filterPullRequestCommentsForCommit(comments []githubPullRequestComment, commitID string) []githubPullRequestComment {

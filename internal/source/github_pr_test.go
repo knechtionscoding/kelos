@@ -726,6 +726,160 @@ func TestBuildPullRequestsURLSortedByUpdated(t *testing.T) {
 	}
 }
 
+func TestMergeComments(t *testing.T) {
+	conversation := []githubComment{
+		{Body: "conversation comment", CreatedAt: "2026-01-01T12:00:00Z"},
+	}
+	review := []githubPullRequestComment{
+		{Body: "review comment", CreatedAt: "2026-01-02T12:00:00Z", Path: "file.go", Line: 10, CommitID: "sha1"},
+	}
+
+	merged := mergeComments(conversation, review)
+	if len(merged) != 2 {
+		t.Fatalf("expected 2 comments, got %d", len(merged))
+	}
+	if merged[0].Body != "conversation comment" {
+		t.Errorf("merged[0].Body = %q, want %q", merged[0].Body, "conversation comment")
+	}
+	if merged[1].Body != "review comment" {
+		t.Errorf("merged[1].Body = %q, want %q", merged[1].Body, "review comment")
+	}
+	if merged[1].CreatedAt != "2026-01-02T12:00:00Z" {
+		t.Errorf("merged[1].CreatedAt = %q, want %q", merged[1].CreatedAt, "2026-01-02T12:00:00Z")
+	}
+}
+
+func TestDiscoverPullRequestsTriggerCommentInReviewComment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/owner/repo/pulls":
+			json.NewEncoder(w).Encode([]githubPullRequest{
+				{
+					Number:  1,
+					Title:   "Fix flaky test",
+					HTMLURL: "https://github.com/owner/repo/pull/1",
+					Head: githubPullRequestHead{
+						Ref: "kelos-task-123",
+						SHA: "head-sha-1",
+					},
+				},
+			})
+		case "/repos/owner/repo/pulls/1/reviews":
+			json.NewEncoder(w).Encode([]githubPullRequestReview{
+				{
+					State:       "CHANGES_REQUESTED",
+					SubmittedAt: "2026-01-02T12:00:00Z",
+					CommitID:    "head-sha-1",
+					User:        githubUser{Login: "reviewer"},
+				},
+			})
+		case "/repos/owner/repo/issues/1/comments":
+			json.NewEncoder(w).Encode([]githubComment{})
+		case "/repos/owner/repo/pulls/1/comments":
+			json.NewEncoder(w).Encode([]githubPullRequestComment{
+				{
+					Body:      "/kelos pick-up",
+					Path:      "internal/source/github.go",
+					Line:      10,
+					CreatedAt: "2026-01-03T12:00:00Z",
+					CommitID:  "head-sha-1",
+				},
+			})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	s := &GitHubPullRequestSource{
+		Owner:          "owner",
+		Repo:           "repo",
+		BaseURL:        server.URL,
+		ReviewState:    "changes_requested",
+		TriggerComment: "/kelos pick-up",
+	}
+
+	items, err := s.Discover(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item (trigger in review comment), got %d", len(items))
+	}
+
+	wantTriggerTime := time.Date(2026, 1, 3, 12, 0, 0, 0, time.UTC)
+	if !items[0].TriggerTime.Equal(wantTriggerTime) {
+		t.Errorf("TriggerTime = %v, want %v", items[0].TriggerTime, wantTriggerTime)
+	}
+}
+
+func TestDiscoverPullRequestsExcludeCommentInReviewComment(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/owner/repo/pulls":
+			json.NewEncoder(w).Encode([]githubPullRequest{
+				{
+					Number:  1,
+					Title:   "Fix flaky test",
+					HTMLURL: "https://github.com/owner/repo/pull/1",
+					Head: githubPullRequestHead{
+						Ref: "kelos-task-123",
+						SHA: "head-sha-1",
+					},
+				},
+			})
+		case "/repos/owner/repo/pulls/1/reviews":
+			json.NewEncoder(w).Encode([]githubPullRequestReview{
+				{
+					State:       "CHANGES_REQUESTED",
+					SubmittedAt: "2026-01-02T12:00:00Z",
+					CommitID:    "head-sha-1",
+					User:        githubUser{Login: "reviewer"},
+				},
+			})
+		case "/repos/owner/repo/issues/1/comments":
+			json.NewEncoder(w).Encode([]githubComment{
+				{
+					Body:      "/kelos pick-up",
+					CreatedAt: "2026-01-02T12:00:00Z",
+				},
+			})
+		case "/repos/owner/repo/pulls/1/comments":
+			json.NewEncoder(w).Encode([]githubPullRequestComment{
+				{
+					Body:      "/kelos needs-input",
+					Path:      "internal/source/github.go",
+					Line:      10,
+					CreatedAt: "2026-01-03T12:00:00Z",
+					CommitID:  "head-sha-1",
+				},
+			})
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	s := &GitHubPullRequestSource{
+		Owner:           "owner",
+		Repo:            "repo",
+		BaseURL:         server.URL,
+		ReviewState:     "changes_requested",
+		TriggerComment:  "/kelos pick-up",
+		ExcludeComments: []string{"/kelos needs-input"},
+	}
+
+	items, err := s.Discover(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(items) != 0 {
+		t.Fatalf("expected 0 items (exclude in review comment), got %d", len(items))
+	}
+}
+
 func TestResolvePullRequestTriggerTime(t *testing.T) {
 	reviewTime := time.Date(2026, 1, 5, 12, 0, 0, 0, time.UTC)
 	commentTime := time.Date(2026, 1, 4, 12, 0, 0, 0, time.UTC)
