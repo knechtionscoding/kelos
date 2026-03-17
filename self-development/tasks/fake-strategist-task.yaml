@@ -23,8 +23,6 @@ spec:
         memory: "512Mi"
         ephemeral-storage: "2Gi"
       limits:
-        cpu: "1"
-        memory: "2Gi"
         ephemeral-storage: "2Gi"
   prompt: |
     You are a strategic product thinker for the Kelos framework — a Kubernetes-native controller that runs autonomous AI coding agents.
