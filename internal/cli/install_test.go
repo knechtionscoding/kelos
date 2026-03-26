@@ -844,17 +844,11 @@ func TestBuildHelmValues(t *testing.T) {
 				if _, ok := vals["telemetry"]; ok {
 					t.Error("expected no telemetry key when not disabled")
 				}
-				if _, ok := vals["spawnerResourceRequests"]; ok {
-					t.Error("expected no spawnerResourceRequests when empty")
+				if _, ok := vals["spawner"]; ok {
+					t.Error("expected no spawner key when empty")
 				}
-				if _, ok := vals["spawnerResourceLimits"]; ok {
-					t.Error("expected no spawnerResourceLimits when empty")
-				}
-				if _, ok := vals["tokenRefresherResourceRequests"]; ok {
-					t.Error("expected no tokenRefresherResourceRequests when empty")
-				}
-				if _, ok := vals["tokenRefresherResourceLimits"]; ok {
-					t.Error("expected no tokenRefresherResourceLimits when empty")
+				if _, ok := vals["tokenRefresher"]; ok {
+					t.Error("expected no tokenRefresher key when empty")
 				}
 				if _, ok := vals["controller"]; ok {
 					t.Error("expected no controller key when empty")
@@ -888,8 +882,10 @@ func TestBuildHelmValues(t *testing.T) {
 			version:                 "latest",
 			spawnerResourceRequests: "cpu=250m,memory=512Mi",
 			checkFn: func(t *testing.T, vals map[string]interface{}) {
-				if vals["spawnerResourceRequests"] != "cpu=250m,memory=512Mi" {
-					t.Errorf("expected spawnerResourceRequests=cpu=250m,memory=512Mi, got %v", vals["spawnerResourceRequests"])
+				spawner := vals["spawner"].(map[string]interface{})
+				res := spawner["resources"].(map[string]interface{})
+				if res["requests"] != "cpu=250m,memory=512Mi" {
+					t.Errorf("expected spawner.resources.requests=cpu=250m,memory=512Mi, got %v", res["requests"])
 				}
 			},
 		},
@@ -898,8 +894,10 @@ func TestBuildHelmValues(t *testing.T) {
 			version:               "latest",
 			spawnerResourceLimits: "cpu=1,memory=1Gi",
 			checkFn: func(t *testing.T, vals map[string]interface{}) {
-				if vals["spawnerResourceLimits"] != "cpu=1,memory=1Gi" {
-					t.Errorf("expected spawnerResourceLimits=cpu=1,memory=1Gi, got %v", vals["spawnerResourceLimits"])
+				spawner := vals["spawner"].(map[string]interface{})
+				res := spawner["resources"].(map[string]interface{})
+				if res["limits"] != "cpu=1,memory=1Gi" {
+					t.Errorf("expected spawner.resources.limits=cpu=1,memory=1Gi, got %v", res["limits"])
 				}
 			},
 		},
@@ -908,8 +906,10 @@ func TestBuildHelmValues(t *testing.T) {
 			version:                        "latest",
 			tokenRefresherResourceRequests: "cpu=100m,memory=128Mi",
 			checkFn: func(t *testing.T, vals map[string]interface{}) {
-				if vals["tokenRefresherResourceRequests"] != "cpu=100m,memory=128Mi" {
-					t.Errorf("expected tokenRefresherResourceRequests=cpu=100m,memory=128Mi, got %v", vals["tokenRefresherResourceRequests"])
+				tr := vals["tokenRefresher"].(map[string]interface{})
+				res := tr["resources"].(map[string]interface{})
+				if res["requests"] != "cpu=100m,memory=128Mi" {
+					t.Errorf("expected tokenRefresher.resources.requests=cpu=100m,memory=128Mi, got %v", res["requests"])
 				}
 			},
 		},
@@ -918,8 +918,10 @@ func TestBuildHelmValues(t *testing.T) {
 			version:                      "latest",
 			tokenRefresherResourceLimits: "cpu=200m,memory=256Mi",
 			checkFn: func(t *testing.T, vals map[string]interface{}) {
-				if vals["tokenRefresherResourceLimits"] != "cpu=200m,memory=256Mi" {
-					t.Errorf("expected tokenRefresherResourceLimits=cpu=200m,memory=256Mi, got %v", vals["tokenRefresherResourceLimits"])
+				tr := vals["tokenRefresher"].(map[string]interface{})
+				res := tr["resources"].(map[string]interface{})
+				if res["limits"] != "cpu=200m,memory=256Mi" {
+					t.Errorf("expected tokenRefresher.resources.limits=cpu=200m,memory=256Mi, got %v", res["limits"])
 				}
 			},
 		},
