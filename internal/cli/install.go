@@ -138,17 +138,29 @@ func buildHelmValues(ver string, pullPolicy string, disableHeartbeat bool, spawn
 			"enabled": false,
 		}
 	}
+	spawnerResources := map[string]interface{}{}
 	if spawnerResourceRequests != "" {
-		vals["spawnerResourceRequests"] = spawnerResourceRequests
+		spawnerResources["requests"] = spawnerResourceRequests
 	}
 	if spawnerResourceLimits != "" {
-		vals["spawnerResourceLimits"] = spawnerResourceLimits
+		spawnerResources["limits"] = spawnerResourceLimits
 	}
+	if len(spawnerResources) > 0 {
+		vals["spawner"] = map[string]interface{}{
+			"resources": spawnerResources,
+		}
+	}
+	tokenRefresherResources := map[string]interface{}{}
 	if tokenRefresherResourceRequests != "" {
-		vals["tokenRefresherResourceRequests"] = tokenRefresherResourceRequests
+		tokenRefresherResources["requests"] = tokenRefresherResourceRequests
 	}
 	if tokenRefresherResourceLimits != "" {
-		vals["tokenRefresherResourceLimits"] = tokenRefresherResourceLimits
+		tokenRefresherResources["limits"] = tokenRefresherResourceLimits
+	}
+	if len(tokenRefresherResources) > 0 {
+		vals["tokenRefresher"] = map[string]interface{}{
+			"resources": tokenRefresherResources,
+		}
 	}
 	controllerResources := map[string]interface{}{}
 	if controllerResourceRequests != "" {
